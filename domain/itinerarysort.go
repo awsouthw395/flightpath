@@ -52,7 +52,7 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 	var backwardsSortedRoutes []Route
 	tryForwardPath := true
 	tryBackwardPath := true
-	//var sortedRoutes []Route
+
 	nodes := createNodeMap(routes)
 
 	originNode, err := nodes.findOriginNode()
@@ -68,6 +68,8 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 		return nil, errors.New("no start or end node exists, all nodes belong to a circle")
 	}
 
+	//Traverse through the nodes forward and backwards until all the nodes have been removed. The act of traversing
+	//removes nodes as the edges connected to them are traversed.
 	for len(nodes) > 0 {
 
 		if originNode != nil && tryForwardPath == true {
@@ -80,14 +82,13 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 				forwardSortedRoutes = append(forwardSortedRoutes, newlySortedRoutes...)
 				tryBackwardPath = true
 			}
-			if forwardPathFailure != nil {
-				tryForwardPath = false
-			} else {
+			if forwardPathFailure == nil {
 				if len(nodes) != 0 {
 					return nil, errors.New("disconnected nodes detected")
 				}
 				return append(forwardSortedRoutes, backwardsSortedRoutes...), nil
 			}
+			tryForwardPath = false
 
 		}
 
@@ -101,14 +102,14 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 				backwardsSortedRoutes = append(backwardsSortedRoutes, newlySortedRoutes...)
 				tryForwardPath = true
 			}
-			if backwardPathFailure != nil {
-				tryBackwardPath = false
-			} else {
+			if backwardPathFailure == nil {
 				if len(nodes) != 0 {
 					return nil, errors.New("disconnected nodes detected")
 				}
 				return append(forwardSortedRoutes, backwardsSortedRoutes...), nil
 			}
+			tryBackwardPath = false
+
 		}
 
 		//Neither backward nor forward paths were able to make any progress in this loop, progress is locked
