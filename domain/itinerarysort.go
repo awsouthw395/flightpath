@@ -50,8 +50,8 @@ func createNodeMap(routes []Route) nodeMap {
 func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 	var forwardSortedRoutes []Route
 	var backwardsSortedRoutes []Route
-	var forwardPathFailure error
-	var backwardPathFailure error
+	tryForwardPath := true
+	tryBackwardPath := true
 	//var sortedRoutes []Route
 	nodes := createNodeMap(routes)
 
@@ -64,43 +64,51 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 	if err != nil {
 		return nil, err
 	}
+	if originNode == nil && terminationNode == nil {
+		return nil, errors.New("no start or end node exists, all nodes belong to a circle")
+	}
 
 	for len(nodes) > 0 {
 
-		if originNode == nil && terminationNode == nil {
-			return nil, errors.New("no start or end node exists, all nodes belong to a circle")
-		}
-
-		if originNode != nil {
+		if originNode != nil && tryForwardPath == true {
 			var newlySortedRoutes []Route
+			var forwardPathFailure error
 			newlySortedRoutes, originNode, forwardPathFailure = forwardPath(nodes, *originNode)
 			if len(newlySortedRoutes) != 0 {
 				//If any routes were successfully sorted, add them to the slice and clear the backwardPathFailure error
 				//so that the loop will try the backward path at least once more as node map has changed
 				forwardSortedRoutes = append(forwardSortedRoutes, newlySortedRoutes...)
-				backwardPathFailure = nil
+				tryBackwardPath = true
 			}
-			if forwardPathFailure == nil {
-				return append(forwardSortedRoutes, backwardsSortedRoutes...), nil
+			if forwardPathFailure != nil {
+				tryForwardPath = false
+			} else {
+				tryBackwardPath = false
+				tryForwardPath = false
 			}
+
 		}
 
-		if terminationNode != nil {
+		if terminationNode != nil && tryBackwardPath == true {
 			var newlySortedRoutes []Route
+			var backwardPathFailure error
 			newlySortedRoutes, terminationNode, backwardPathFailure = backwardPath(nodes, *terminationNode)
 			if len(newlySortedRoutes) != 0 {
 				//If any routes were successfully sorted, add them to the slice and clear the forwardPathFailure error
 				//so that the loop will try the forward path again at least once more as the node map has changed
 				backwardsSortedRoutes = append(backwardsSortedRoutes, newlySortedRoutes...)
-				forwardPathFailure = nil
+				tryForwardPath = true
 			}
-			if backwardPathFailure == nil {
-				return append(forwardSortedRoutes, backwardsSortedRoutes...), nil
+			if backwardPathFailure != nil {
+				tryBackwardPath = false
+			} else {
+				tryBackwardPath = false
+				tryForwardPath = false
 			}
 		}
 
-		//Neither backward or forward paths were able to make any progress in this loop, progress is locked
-		if forwardPathFailure != nil && backwardPathFailure != nil {
+		//Neither backward nor forward paths were able to make any progress in this loop, progress is locked
+		if tryForwardPath == false && tryBackwardPath == false {
 			return nil, errors.New("path cannot be determined, unresolvable node paths")
 		}
 	}

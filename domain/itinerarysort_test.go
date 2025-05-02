@@ -170,3 +170,20 @@ func TestPathContainsTwoCirclesOnOneNode(t *testing.T) {
 		t.Errorf("TestCompleteCircle experienced an unexpected result: %v", err)
 	}
 }
+
+func TestPathContainsDisconnectedCircle(t *testing.T) {
+	routes := []domain.Route{
+		{"LAX", "DXB"},
+		{"JFK", "LAX"},
+		{"SFO", "SJC"},
+		{"DXB", "SFO"},
+		{"SJC", "LAX"},
+		{"CDG", "LHR"},
+		{"LHR", "CDG"},
+	}
+
+	_, err := domain.ItineraryService{}.CalculatePath(routes)
+	if err.Error() != "path cannot be determined, unresolvable node paths" {
+		t.Errorf("TestCompleteCircle experienced an unexpected result: %v", err)
+	}
+}
