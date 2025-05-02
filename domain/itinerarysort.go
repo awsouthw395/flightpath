@@ -55,12 +55,12 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 	//var sortedRoutes []Route
 	nodes := createNodeMap(routes)
 
-	originNode, err := findOriginNode(nodes)
+	originNode, err := nodes.findOriginNode()
 	if err != nil {
 		return nil, err
 	}
 
-	terminationNode, err := findTerminationNode(nodes)
+	terminationNode, err := nodes.findTerminationNode()
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +83,10 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 			if forwardPathFailure != nil {
 				tryForwardPath = false
 			} else {
-				tryBackwardPath = false
-				tryForwardPath = false
+				if len(nodes) != 0 {
+					return nil, errors.New("disconnected nodes detected")
+				}
+				return append(forwardSortedRoutes, backwardsSortedRoutes...), nil
 			}
 
 		}
@@ -102,8 +104,10 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 			if backwardPathFailure != nil {
 				tryBackwardPath = false
 			} else {
-				tryBackwardPath = false
-				tryForwardPath = false
+				if len(nodes) != 0 {
+					return nil, errors.New("disconnected nodes detected")
+				}
+				return append(forwardSortedRoutes, backwardsSortedRoutes...), nil
 			}
 		}
 
@@ -185,7 +189,13 @@ func backwardPath(nodes nodeMap, terminationNode node) ([]Route, *node, error) {
 	return sortedRoutes, nil, nil
 }
 
-func findOriginNode(nm nodeMap) (*node, error) {
+//func (nm nodeMap) ArriveAtNode(leavingNodeName string, arrivingNodeName string) ([]Route, error) {
+//	currentNode = nodes[arrivingNodeName]
+//	currentNode.outgoingNodes = remove(currentNode.outgoingNodes, leavingNodeName)
+//	nodes[currentNode.name] = currentNode
+//}
+
+func (nm nodeMap) findOriginNode() (*node, error) {
 	var originNodes []node
 	for _, n := range nm {
 		if len(n.incomingNodes) == 0 {
@@ -201,7 +211,7 @@ func findOriginNode(nm nodeMap) (*node, error) {
 	return &originNodes[0], nil
 }
 
-func findTerminationNode(nm nodeMap) (*node, error) {
+func (nm nodeMap) findTerminationNode() (*node, error) {
 	var terminationNodes []node
 	for _, n := range nm {
 		if len(n.outgoingNodes) == 0 {

@@ -183,7 +183,7 @@ func TestPathContainsDisconnectedCircle(t *testing.T) {
 	}
 
 	_, err := domain.ItineraryService{}.CalculatePath(routes)
-	if err.Error() != "path cannot be determined, unresolvable node paths" {
+	if err.Error() != "disconnected nodes detected" {
 		t.Errorf("TestCompleteCircle experienced an unexpected result: %v", err)
 	}
 }
