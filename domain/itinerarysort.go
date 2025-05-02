@@ -18,15 +18,15 @@ type node struct {
 
 type nodeMap map[string]node
 
-func (nm nodeMap) upsertNode(newNode node) {
-	oldNode, nodeExists := nm[newNode.name]
+func (nodes nodeMap) upsertNode(newNode node) {
+	oldNode, nodeExists := nodes[newNode.name]
 	if !nodeExists {
-		nm[newNode.name] = newNode
+		nodes[newNode.name] = newNode
 		return
 	}
 	oldNode.outgoingNodes = append(oldNode.outgoingNodes, newNode.outgoingNodes...)
 	oldNode.incomingNodes = append(oldNode.incomingNodes, newNode.incomingNodes...)
-	nm[oldNode.name] = oldNode
+	nodes[oldNode.name] = oldNode
 }
 
 func createNodeMap(routes []Route) nodeMap {
@@ -132,11 +132,10 @@ func forwardPath(nodes nodeMap, originNode node) ([]Route, *node, error) {
 		leavingNodeName := currentNode.name
 		arrivingNodeName := currentNode.outgoingNodes[0]
 		currentNode.outgoingNodes = remove(currentNode.outgoingNodes, arrivingNodeName)
+		nodes[currentNode.name] = currentNode
 		//If the node you are leaving has no available routes in or out, delete it. Otherwise, save it.
 		if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
 			delete(nodes, currentNode.name)
-		} else {
-			nodes[currentNode.name] = currentNode
 		}
 
 		//Add this route to the sorted routes
@@ -148,9 +147,8 @@ func forwardPath(nodes nodeMap, originNode node) ([]Route, *node, error) {
 	}
 	if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
 		delete(nodes, currentNode.name)
-	} else {
-		nodes[currentNode.name] = currentNode
 	}
+
 	return sortedRoutes, nil, nil
 }
 
@@ -166,11 +164,11 @@ func backwardPath(nodes nodeMap, terminationNode node) ([]Route, *node, error) {
 		leavingNodeName := currentNode.name
 		arrivingNodeName := currentNode.incomingNodes[0]
 		currentNode.incomingNodes = remove(currentNode.incomingNodes, arrivingNodeName)
+		nodes[currentNode.name] = currentNode
+
 		//If the node you are leaving has no available routes in or out, delete it. Otherwise, save it.
 		if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
 			delete(nodes, currentNode.name)
-		} else {
-			nodes[currentNode.name] = currentNode
 		}
 
 		//Add this route to the sorted routes
@@ -183,21 +181,13 @@ func backwardPath(nodes nodeMap, terminationNode node) ([]Route, *node, error) {
 
 	if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
 		delete(nodes, currentNode.name)
-	} else {
-		nodes[currentNode.name] = currentNode
 	}
 	return sortedRoutes, nil, nil
 }
 
-//func (nm nodeMap) ArriveAtNode(leavingNodeName string, arrivingNodeName string) ([]Route, error) {
-//	currentNode = nodes[arrivingNodeName]
-//	currentNode.outgoingNodes = remove(currentNode.outgoingNodes, leavingNodeName)
-//	nodes[currentNode.name] = currentNode
-//}
-
-func (nm nodeMap) findOriginNode() (*node, error) {
+func (nodes nodeMap) findOriginNode() (*node, error) {
 	var originNodes []node
-	for _, n := range nm {
+	for _, n := range nodes {
 		if len(n.incomingNodes) == 0 {
 			originNodes = append(originNodes, n)
 		}
@@ -211,9 +201,9 @@ func (nm nodeMap) findOriginNode() (*node, error) {
 	return &originNodes[0], nil
 }
 
-func (nm nodeMap) findTerminationNode() (*node, error) {
+func (nodes nodeMap) findTerminationNode() (*node, error) {
 	var terminationNodes []node
-	for _, n := range nm {
+	for _, n := range nodes {
 		if len(n.outgoingNodes) == 0 {
 			terminationNodes = append(terminationNodes, n)
 		}
