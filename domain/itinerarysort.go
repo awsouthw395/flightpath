@@ -52,7 +52,7 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 	var backwardsSortedRoutes []Route
 	var forwardPathFailure error
 	var backwardPathFailure error
-	var sortedRoutes []Route
+	//var sortedRoutes []Route
 	nodes := createNodeMap(routes)
 
 	originNode, err := findOriginNode(nodes)
@@ -72,27 +72,40 @@ func (i ItineraryService) CalculatePath(routes []Route) ([]Route, error) {
 		}
 
 		if originNode != nil {
-			forwardSortedRoutes, originNode, forwardPathFailure = forwardPath(nodes, *originNode)
-			sortedRoutes = append(forwardSortedRoutes, sortedRoutes...)
+			var newlySortedRoutes []Route
+			newlySortedRoutes, originNode, forwardPathFailure = forwardPath(nodes, *originNode)
+			if len(newlySortedRoutes) != 0 {
+				//If any routes were successfully sorted, add them to the slice and clear the backwardPathFailure error
+				//so that the loop will try the backward path at least once more as node map has changed
+				forwardSortedRoutes = append(forwardSortedRoutes, newlySortedRoutes...)
+				backwardPathFailure = nil
+			}
 			if forwardPathFailure == nil {
-				return sortedRoutes, nil
+				return append(forwardSortedRoutes, backwardsSortedRoutes...), nil
 			}
 		}
 
 		if terminationNode != nil {
-			backwardsSortedRoutes, terminationNode, backwardPathFailure = backwardPath(nodes, *terminationNode)
-			sortedRoutes = append(sortedRoutes, backwardsSortedRoutes...)
+			var newlySortedRoutes []Route
+			newlySortedRoutes, terminationNode, backwardPathFailure = backwardPath(nodes, *terminationNode)
+			if len(newlySortedRoutes) != 0 {
+				//If any routes were successfully sorted, add them to the slice and clear the forwardPathFailure error
+				//so that the loop will try the forward path again at least once more as the node map has changed
+				backwardsSortedRoutes = append(backwardsSortedRoutes, newlySortedRoutes...)
+				forwardPathFailure = nil
+			}
 			if backwardPathFailure == nil {
-				return sortedRoutes, nil
+				return append(forwardSortedRoutes, backwardsSortedRoutes...), nil
 			}
 		}
 
+		//Neither backward or forward paths were able to make any progress in this loop, progress is locked
 		if forwardPathFailure != nil && backwardPathFailure != nil {
 			return nil, errors.New("path cannot be determined, unresolvable node paths")
 		}
 	}
 
-	return sortedRoutes, nil
+	return append(forwardSortedRoutes, backwardsSortedRoutes...), nil
 }
 
 func forwardPath(nodes nodeMap, originNode node) ([]Route, *node, error) {
@@ -101,15 +114,31 @@ func forwardPath(nodes nodeMap, originNode node) ([]Route, *node, error) {
 
 	for len(currentNode.outgoingNodes) > 0 {
 		if len(currentNode.outgoingNodes) > 1 {
-			return nil, &currentNode, errors.New("fork found during forward path execution, aborting")
+			return sortedRoutes, &currentNode, errors.New("fork found during forward path execution, aborting")
 		}
-		nextNodeName := currentNode.outgoingNodes[0]
-		sortedRoutes = append(sortedRoutes, Route{Source: currentNode.name, Destination: nextNodeName})
-		delete(nodes, currentNode.name)
-		currentNode = nodes[nextNodeName]
+		//Leave the current node on the only available path
+		leavingNodeName := currentNode.name
+		arrivingNodeName := currentNode.outgoingNodes[0]
+		currentNode.outgoingNodes = remove(currentNode.outgoingNodes, arrivingNodeName)
+		//If the node you are leaving has no available routes in or out, delete it. Otherwise, save it.
+		if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
+			delete(nodes, currentNode.name)
+		} else {
+			nodes[currentNode.name] = currentNode
+		}
+
+		//Add this route to the sorted routes
+		sortedRoutes = append(sortedRoutes, Route{Source: leavingNodeName, Destination: arrivingNodeName})
+		//Arrive at the next node
+		currentNode = nodes[arrivingNodeName]
+		currentNode.incomingNodes = remove(currentNode.incomingNodes, leavingNodeName)
+		nodes[currentNode.name] = currentNode
 	}
-	//delete the last node
-	delete(nodes, currentNode.name)
+	if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
+		delete(nodes, currentNode.name)
+	} else {
+		nodes[currentNode.name] = currentNode
+	}
 	return sortedRoutes, nil, nil
 }
 
@@ -119,15 +148,32 @@ func backwardPath(nodes nodeMap, terminationNode node) ([]Route, *node, error) {
 
 	for len(currentNode.incomingNodes) > 0 {
 		if len(currentNode.incomingNodes) > 1 {
-			return nil, &currentNode, errors.New("fork found during backwards path execution, aborting")
+			return sortedRoutes, &currentNode, errors.New("fork found during backwards path execution, aborting")
 		}
-		nextNodeName := currentNode.incomingNodes[0]
-		sortedRoutes = append(sortedRoutes, Route{Source: currentNode.name, Destination: nextNodeName})
-		delete(nodes, currentNode.name)
-		currentNode = nodes[nextNodeName]
+		//Leave the current node on the only available path
+		leavingNodeName := currentNode.name
+		arrivingNodeName := currentNode.incomingNodes[0]
+		currentNode.incomingNodes = remove(currentNode.incomingNodes, arrivingNodeName)
+		//If the node you are leaving has no available routes in or out, delete it. Otherwise, save it.
+		if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
+			delete(nodes, currentNode.name)
+		} else {
+			nodes[currentNode.name] = currentNode
+		}
+
+		//Add this route to the sorted routes
+		sortedRoutes = append([]Route{{Source: arrivingNodeName, Destination: leavingNodeName}}, sortedRoutes...)
+		//Arrive at the next node
+		currentNode = nodes[arrivingNodeName]
+		currentNode.outgoingNodes = remove(currentNode.outgoingNodes, leavingNodeName)
+		nodes[currentNode.name] = currentNode
 	}
-	//delete the last node
-	delete(nodes, currentNode.name)
+
+	if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
+		delete(nodes, currentNode.name)
+	} else {
+		nodes[currentNode.name] = currentNode
+	}
 	return sortedRoutes, nil, nil
 }
 
@@ -161,4 +207,13 @@ func findTerminationNode(nm nodeMap) (*node, error) {
 		return &node{}, errors.New("multiple terminations found")
 	}
 	return &terminationNodes[0], nil
+}
+
+func remove(s []string, r string) []string {
+	for i, v := range s {
+		if v == r {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
 }
