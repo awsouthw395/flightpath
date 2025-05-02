@@ -133,7 +133,7 @@ func forwardPath(nodes nodeMap, originNode node) ([]Route, *node, error) {
 		arrivingNodeName := currentNode.outgoingNodes[0]
 		currentNode.outgoingNodes = remove(currentNode.outgoingNodes, arrivingNodeName)
 		nodes[currentNode.name] = currentNode
-		//If the node you are leaving has no available routes in or out, delete it. Otherwise, save it.
+		//If the node you are leaving has no available routes in or out, delete it
 		if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
 			delete(nodes, currentNode.name)
 		}
@@ -145,9 +145,9 @@ func forwardPath(nodes nodeMap, originNode node) ([]Route, *node, error) {
 		currentNode.incomingNodes = remove(currentNode.incomingNodes, leavingNodeName)
 		nodes[currentNode.name] = currentNode
 	}
-	if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
-		delete(nodes, currentNode.name)
-	}
+
+	//The path has completed successfully, the current node should be the last node and is safe to delete
+	delete(nodes, currentNode.name)
 
 	return sortedRoutes, nil, nil
 }
@@ -166,7 +166,7 @@ func backwardPath(nodes nodeMap, terminationNode node) ([]Route, *node, error) {
 		currentNode.incomingNodes = remove(currentNode.incomingNodes, arrivingNodeName)
 		nodes[currentNode.name] = currentNode
 
-		//If the node you are leaving has no available routes in or out, delete it. Otherwise, save it.
+		//If the node you are leaving has no available routes in or out, delete it
 		if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
 			delete(nodes, currentNode.name)
 		}
@@ -179,9 +179,9 @@ func backwardPath(nodes nodeMap, terminationNode node) ([]Route, *node, error) {
 		nodes[currentNode.name] = currentNode
 	}
 
-	if len(currentNode.incomingNodes) == 0 && len(currentNode.outgoingNodes) == 0 {
-		delete(nodes, currentNode.name)
-	}
+	//The path has completed successfully, the current node should be the last node and is safe to delete
+	delete(nodes, currentNode.name)
+
 	return sortedRoutes, nil, nil
 }
 
@@ -192,6 +192,7 @@ func (nodes nodeMap) findOriginNode() (*node, error) {
 			originNodes = append(originNodes, n)
 		}
 	}
+	//No origin node found, but that doesn't necessarily trigger an error
 	if len(originNodes) == 0 {
 		return nil, nil
 	}
@@ -208,6 +209,7 @@ func (nodes nodeMap) findTerminationNode() (*node, error) {
 			terminationNodes = append(terminationNodes, n)
 		}
 	}
+	//No termination node found, but that doesn't necessarily trigger an error
 	if len(terminationNodes) == 0 {
 		return nil, nil
 	}
